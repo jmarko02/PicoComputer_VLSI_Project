@@ -128,6 +128,15 @@ module cpu #(
         .b(alu_b),
         .f(alu_out)
     );
+    
+    localparam MOV                              = 4'b0000;
+    localparam ADD                              = 4'b0001;
+    localparam SUB                              = 4'b0010;
+    localparam MUL                              = 4'b0011;
+    localparam DIV                              = 4'b0100;
+    localparam IN                               = 4'b0111;
+    localparam OUT                              = 4'b1000;
+    localparam STOP                             = 4'b1111;
 
     localparam STATE_INIT                       = 0;
     localparam STATE_FETCH                      = 1;
@@ -231,6 +240,10 @@ module cpu #(
     
 
     always @(*) begin
+
+        state_next <= state_reg
+        substate_next <= substate_reg
+
         out_next <= out_reg;
         status_next <= 0;
         we_next <= 0;
@@ -274,10 +287,27 @@ module cpu #(
             end
             STATE_FETCH:
             begin
-                case (substate)
+                case (substate_reg)
+                    FETCH_LOAD_MAR:
+                    begin
+                        
+                        substate_next <= FETCH_WAIT_MEM;
+                    end
+                    FETCH_WAIT_MEM:
+                    begin
+                        
+                        substate_next <= FETCH_READ_MEM;
+                    end
+                    FETCH_READ_MEM:
+                    begin
+                        
+                        substate_next <= FETCH_LOAD_IR0;
+                    end
                     FETCH_LOAD_IR0:
                     begin
                         
+                        state_next <= STATE_DECODE;
+                        substate_next <= 0;
                     end
                 endcase
             end
@@ -286,10 +316,513 @@ module cpu #(
                 case (opcode)
                     MOV:
                     begin
-                        case (substate)
+                        case (substate_reg)
                             DECODE_MOV_LD_MAR:
                             begin
                                 
+                                substate_next <= DECODE_MOV_IND_WAIT_MEM;
+                            end
+                            DECODE_MOV_IND_WAIT_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_MOV_IND_READ_MEM;
+                            end
+                            DECODE_MOV_IND_READ_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_MOV_IND_MDR_TO_MAR;
+                            end
+                            DECODE_MOV_IND_MDR_TO_MAR:
+                            begin
+                                
+                                substate_next <= DECODE_MOV_WAIT_MEM;
+                            end
+                            DECODE_MOV_WAIT_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_MOV_READ_MEM;
+                            end
+                            DECODE_MOV_READ_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_MOV_MDR_TO_ACC;
+                            end
+                            DECODE_MOV_MDR_TO_ACC:
+                            begin
+                                
+                                state_next <= STATE_STORE;
+                                substate_next <= STORE_X_TO_MAR;
+                            end
+                        endcase
+                    end
+                    ADD:
+                    begin
+                        case (substate_reg)
+                            DECODE_ARITHM_Y_TO_MAR:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_IND_WAIT_MEM;
+                            end
+                            DECODE_ARITHM_Y_IND_WAIT_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_IND_READ_MEM;
+                            end
+                            DECODE_ARITHM_Y_IND_READ_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_IND_MDR_TO_MAR;
+                            end
+                            DECODE_ARITHM_Y_IND_MDR_TO_MAR:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_WAIT_MEM;
+                            end
+                            DECODE_ARITHM_Y_WAIT_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_READ_MEM;
+                            end
+                            DECODE_ARITHM_Y_READ_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_MDR_TO_ACC;
+                            end
+                            DECODE_ARITHM_Y_MDR_TO_ACC:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_TO_MAR;
+                            end
+                            DECODE_ARITHM_Z_TO_MAR:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_IND_WAIT_MEM;
+                            end
+                            DECODE_ARITHM_Z_IND_WAIT_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_IND_READ_MEM;
+                            end
+                            DECODE_ARITHM_Z_IND_READ_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_IND_MDR_TO_MAR;
+                            end
+                            DECODE_ARITHM_Z_IND_MDR_TO_MAR:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_WAIT_MEM;
+                            end
+                            DECODE_ARITHM_Z_WAIT_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_READ_MEM;
+                            end
+                            DECODE_ARITHM_Z_READ_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_MDR_TO_ACC;
+                            end
+                            DECODE_ARITHM_Z_MDR_TO_ACC:
+                            begin
+                               
+                                state_next <= STATE_STORE; 
+                                substate_next <= EXECUTE_DO;
+                            end
+                        endcase
+                    end
+                    SUB:
+                    begin
+                        case (substate_reg)
+                            DECODE_ARITHM_Y_TO_MAR:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_IND_WAIT_MEM;
+                            end
+                            DECODE_ARITHM_Y_IND_WAIT_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_IND_READ_MEM;
+                            end
+                            DECODE_ARITHM_Y_IND_READ_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_IND_MDR_TO_MAR;
+                            end
+                            DECODE_ARITHM_Y_IND_MDR_TO_MAR:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_WAIT_MEM;
+                            end
+                            DECODE_ARITHM_Y_WAIT_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_READ_MEM;
+                            end
+                            DECODE_ARITHM_Y_READ_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_MDR_TO_ACC;
+                            end
+                            DECODE_ARITHM_Y_MDR_TO_ACC:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_TO_MAR;
+                            end
+                            DECODE_ARITHM_Z_TO_MAR:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_IND_WAIT_MEM;
+                            end
+                            DECODE_ARITHM_Z_IND_WAIT_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_IND_READ_MEM;
+                            end
+                            DECODE_ARITHM_Z_IND_READ_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_IND_MDR_TO_MAR;
+                            end
+                            DECODE_ARITHM_Z_IND_MDR_TO_MAR:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_WAIT_MEM;
+                            end
+                            DECODE_ARITHM_Z_WAIT_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_READ_MEM;
+                            end
+                            DECODE_ARITHM_Z_READ_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_MDR_TO_ACC;
+                            end
+                            DECODE_ARITHM_Z_MDR_TO_ACC:
+                            begin
+                               
+                                state_next <= STATE_STORE; 
+                                substate_next <= EXECUTE_DO;
+                            end
+                        endcase
+                    end
+                    MUL:
+                    begin
+                        case (substate_reg)
+                            DECODE_ARITHM_Y_TO_MAR:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_IND_WAIT_MEM;
+                            end
+                            DECODE_ARITHM_Y_IND_WAIT_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_IND_READ_MEM;
+                            end
+                            DECODE_ARITHM_Y_IND_READ_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_IND_MDR_TO_MAR;
+                            end
+                            DECODE_ARITHM_Y_IND_MDR_TO_MAR:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_WAIT_MEM;
+                            end
+                            DECODE_ARITHM_Y_WAIT_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_READ_MEM;
+                            end
+                            DECODE_ARITHM_Y_READ_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_MDR_TO_ACC;
+                            end
+                            DECODE_ARITHM_Y_MDR_TO_ACC:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_TO_MAR;
+                            end
+                            DECODE_ARITHM_Z_TO_MAR:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_IND_WAIT_MEM;
+                            end
+                            DECODE_ARITHM_Z_IND_WAIT_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_IND_READ_MEM;
+                            end
+                            DECODE_ARITHM_Z_IND_READ_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_IND_MDR_TO_MAR;
+                            end
+                            DECODE_ARITHM_Z_IND_MDR_TO_MAR:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_WAIT_MEM;
+                            end
+                            DECODE_ARITHM_Z_WAIT_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_READ_MEM;
+                            end
+                            DECODE_ARITHM_Z_READ_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_MDR_TO_ACC;
+                            end
+                            DECODE_ARITHM_Z_MDR_TO_ACC:
+                            begin
+                               
+                                state_next <= STATE_STORE; 
+                                substate_next <= EXECUTE_DO;
+                            end
+                        endcase
+                    end
+                    DIV:
+                    begin
+                        case (substate_reg)
+                            DECODE_ARITHM_Y_TO_MAR:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_IND_WAIT_MEM;
+                            end
+                            DECODE_ARITHM_Y_IND_WAIT_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_IND_READ_MEM;
+                            end
+                            DECODE_ARITHM_Y_IND_READ_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_IND_MDR_TO_MAR;
+                            end
+                            DECODE_ARITHM_Y_IND_MDR_TO_MAR:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_WAIT_MEM;
+                            end
+                            DECODE_ARITHM_Y_WAIT_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_READ_MEM;
+                            end
+                            DECODE_ARITHM_Y_READ_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Y_MDR_TO_ACC;
+                            end
+                            DECODE_ARITHM_Y_MDR_TO_ACC:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_TO_MAR;
+                            end
+                            DECODE_ARITHM_Z_TO_MAR:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_IND_WAIT_MEM;
+                            end
+                            DECODE_ARITHM_Z_IND_WAIT_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_IND_READ_MEM;
+                            end
+                            DECODE_ARITHM_Z_IND_READ_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_IND_MDR_TO_MAR;
+                            end
+                            DECODE_ARITHM_Z_IND_MDR_TO_MAR:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_WAIT_MEM;
+                            end
+                            DECODE_ARITHM_Z_WAIT_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_READ_MEM;
+                            end
+                            DECODE_ARITHM_Z_READ_MEM:
+                            begin
+                               
+                                substate_next <= DECODE_ARITHM_Z_MDR_TO_ACC;
+                            end
+                            DECODE_ARITHM_Z_MDR_TO_ACC:
+                            begin
+                               
+                                state_next <= STATE_STORE; 
+                                substate_next <= EXECUTE_DO;
+                            end
+                        endcase
+                    end
+                    IN:
+                    begin
+                        case (substate_reg)
+                            DECODE_IN_SET_STATUS:
+                            begin
+                                //ne mora ovo biti substate_next, pazi na skokove
+                                substate_next <= DECODE_IN_LOAD_ACC;
+                            end
+                            DECODE_IN_LOAD_ACC:
+                            begin
+                                
+                                substate_next <= STORE_X_TO_MAR;
+                            end
+                        endcase
+                    end
+                    OUT:
+                    begin
+                        case (substate_reg)
+                            DECODE_OUT_X_TO_MAR:
+                            begin
+                                
+                                substate_next <= DECODE_OUT_X_IND_WAIT_MEM;
+                            end
+                            DECODE_OUT_X_IND_WAIT_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_OUT_X_IND_READ_MEM;
+                            end
+                            DECODE_OUT_X_IND_READ_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_OUT_X_IND_MDR_TO_MAR;
+                            end
+                            DECODE_OUT_X_IND_MDR_TO_MAR:
+                            begin
+                                
+                                substate_next <= DECODE_OUT_X_WAIT_MEM;
+                            end
+                            DECODE_OUT_X_WAIT_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_OUT_X_READ_MEM;
+                            end
+                            DECODE_OUT_X_READ_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_OUT_X_MDR_TO_OUT;
+                            end
+                            DECODE_OUT_X_MDR_TO_OUT:
+                            begin
+                                
+                                state_next <= STATE_FETCH;
+                                substate_next <= DECODE_IN_LOAD_ACC;
+                            end
+                        endcase
+                    end
+                    STOP:
+                    begin
+                        case (substate_reg)
+                            DECODE_STOP_X_TO_MAR:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_X_IND_WAIT_MEM;
+                            end
+                            DECODE_STOP_X_IND_WAIT_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_X_IND_READ_MEM;
+                            end
+                            DECODE_STOP_X_IND_READ_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_X_IND_MDR_TO_MAR;
+                            end
+                            DECODE_STOP_X_IND_MDR_TO_MAR:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_X_WAIT_MEM;
+                            end
+                            DECODE_STOP_X_WAIT_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_X_READ_MEM;
+                            end
+                            DECODE_STOP_X_READ_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_X_MDR_TO_OUT;
+                            end
+                            DECODE_STOP_X_MDR_TO_OUT:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_Y_TO_MAR;
+                            end
+                            DECODE_STOP_Y_TO_MAR:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_Y_IND_WAIT_MEM;
+                            end
+                            DECODE_STOP_Y_IND_WAIT_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_Y_IND_READ_MEM;
+                            end
+                            DECODE_STOP_Y_IND_READ_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_Y_IND_MDR_TO_MAR;
+                            end
+                            DECODE_STOP_Y_IND_MDR_TO_MAR:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_Y_WAIT_MEM;
+                            end
+                            DECODE_STOP_Y_WAIT_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_Y_READ_MEM;
+                            end
+                            DECODE_STOP_Y_READ_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_Y_MDR_TO_OUT;
+                            end
+                            DECODE_STOP_Y_MDR_TO_OUT:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_Z_TO_MAR;
+                            end
+                            DECODE_STOP_Z_TO_MAR:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_Z_IND_WAIT_MEM;
+                            end
+                            DECODE_STOP_Z_IND_WAIT_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_Z_IND_READ_MEM;
+                            end
+                            DECODE_STOP_Z_IND_READ_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_Z_IND_MDR_TO_MAR;
+                            end
+                            DECODE_STOP_Z_IND_MDR_TO_MAR:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_Z_WAIT_MEM;
+                            end
+                            DECODE_STOP_Z_WAIT_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_Z_READ_MEM;
+                            end
+                            DECODE_STOP_Z_READ_MEM:
+                            begin
+                                
+                                substate_next <= DECODE_STOP_Z_MDR_TO_OUT;
+                            end
+                            DECODE_STOP_Z_MDR_TO_OUT:
+                            begin
+                                
+                                state_next <= STATE_END;
+                                substate_next <= END_DO;
                             end
                         endcase
                     end
@@ -297,22 +830,28 @@ module cpu #(
             end
             STATE_EXECUTE:
             begin
-                acc_in <= alu_out;
-                acc_ld <= 1;
-                alu_a <= acc_out;
-                alu_b <= mdr_out;
-                case (opcode)
-                    ADD: alu_oc <= 0;
-                    SUB: alu_oc <= 1;
-                    MUL: alu_oc <= 2;
-                    DIV: alu_oc <= 3;
+                case (substate_reg)
+                    EXECUTE_DO:
+                    begin
+                        acc_in <= alu_out;
+                        acc_ld <= 1;
+                        alu_a <= acc_out;
+                        alu_b <= mdr_out;
+                        case (opcode)
+                            ADD: alu_oc <= 3'b000;
+                            SUB: alu_oc <= 3'b001;
+                            MUL: alu_oc <= 3'b010;
+                            DIV: alu_oc <= 3'b011;
+                        endcase
+                        state_next <= STATE_STORE;
+                        substate_next <= STORE_X_TO_MAR;
+                    end
+                    default: ;// ?
                 endcase
-                state_next <= STATE_STORE;
-                substate_next <= STORE_X_TO_MAR;
             end
             STATE_STORE:
             begin
-                case (substate)
+                case (substate_reg)
                     STORE_X_TO_MAR:
                     begin
                         
@@ -321,8 +860,13 @@ module cpu #(
             end
             STATE_END:
             begin
-                state_next <= STATE_END;
-                substate_next <= END_DO;
+                case (substate_reg)
+                    END_DO:
+                    begin
+                        state_next <= STATE_END;
+                        substate_next <= END_DO;
+                    end
+                endcase
             end
         endcase
     end
