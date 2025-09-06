@@ -290,22 +290,26 @@ module cpu #(
                 case (substate_reg)
                     FETCH_LOAD_MAR:
                     begin
-                        
+                        mar_in <= pc_out;
+                        mar_ld <= 1;
+                        pc_inc <= 1;
                         substate_next <= FETCH_WAIT_MEM;
                     end
                     FETCH_WAIT_MEM:
                     begin
-                        
+                        // addr <= mar_out
                         substate_next <= FETCH_READ_MEM;
                     end
                     FETCH_READ_MEM:
                     begin
-                        
+                        mdr_in <= mem;
+                        mdr_ld <= 1;
                         substate_next <= FETCH_LOAD_IR0;
                     end
                     FETCH_LOAD_IR0:
                     begin
-                        
+                        ir0_ld <= 1;
+                        ir0_in <= mdr_out;
                         state_next <= STATE_DECODE;
                         substate_next <= 0;
                     end
@@ -313,43 +317,58 @@ module cpu #(
             end
             STATE_DECODE:
             begin
+                wire [2:0] Xaddr = ir0_out[6:4];
+                wire Xind = ir_out[7];
+                wire [2:0] Yaddr = ir0_out[2:0];
+                wire Yind = ir_out[3];
+                wire [2:0] Zaddr = ir0_out[10:8];
+                wire Zind = ir_out[11];
+                
                 case (opcode)
                     MOV:
                     begin
                         case (substate_reg)
                             DECODE_MOV_LD_MAR:
                             begin
-                                
-                                substate_next <= DECODE_MOV_IND_WAIT_MEM;
+                                mar_in <= {3'b000, Yaddr}
+                                mar_ld <= 1;
+                                if (Yind == 1'b1)
+                                    substate_next <= DECODE_MOV_IND_WAIT_MEM;
+                                else 
+                                    substate_next <= DECODE_MOV_WAIT_MEM;
                             end
                             DECODE_MOV_IND_WAIT_MEM:
                             begin
-                                
+                                // addr <= mar_out
                                 substate_next <= DECODE_MOV_IND_READ_MEM;
                             end
                             DECODE_MOV_IND_READ_MEM:
                             begin
-                                
+                                mdr_in <= mem;
+                                mdr_ld <= 1;
                                 substate_next <= DECODE_MOV_IND_MDR_TO_MAR;
                             end
                             DECODE_MOV_IND_MDR_TO_MAR:
                             begin
-                                
+                                mar_in <= mdr_out[5:0];
+                                mar_ld <= 1;
                                 substate_next <= DECODE_MOV_WAIT_MEM;
                             end
                             DECODE_MOV_WAIT_MEM:
                             begin
-                                
+                                // addr <= mar_out
                                 substate_next <= DECODE_MOV_READ_MEM;
                             end
                             DECODE_MOV_READ_MEM:
                             begin
-                                
+                                mdr_in <= mem;
+                                mdr_ld <= 1;
                                 substate_next <= DECODE_MOV_MDR_TO_ACC;
                             end
                             DECODE_MOV_MDR_TO_ACC:
                             begin
-                                
+                                acc_in <= mdr_out;
+                                acc_ld <= 1;
                                 state_next <= STATE_STORE;
                                 substate_next <= STORE_X_TO_MAR;
                             end
@@ -670,6 +689,7 @@ module cpu #(
                             DECODE_IN_LOAD_ACC:
                             begin
                                 
+                                state_next <= STATE_STORE;
                                 substate_next <= STORE_X_TO_MAR;
                             end
                         endcase
@@ -846,7 +866,6 @@ module cpu #(
                         state_next <= STATE_STORE;
                         substate_next <= STORE_X_TO_MAR;
                     end
-                    default: ;// ?
                 endcase
             end
             STATE_STORE:
@@ -854,7 +873,37 @@ module cpu #(
                 case (substate_reg)
                     STORE_X_TO_MAR:
                     begin
-                        
+                        mar_in <= Xaddr;
+                        mar_ld <= 1;
+                        if (Xind == 1'b1)
+                            substate_next <= STORE_X_IND_WAIT_MEM;
+                        else 
+                            substate_next <= STORE_X_WRITE_MEM;    
+                    end
+                    STORE_X_IND_WAIT_MEM:
+                    begin
+                        //addr <= mar_out;
+                        substate_next <= STORE_X_IND_READ_MEM;
+                    end
+                    STORE_X_IND_READ_MEM:
+                    begin
+                        mdr_in <= mem;
+                        mdr_ld <= 1;
+                        substate_next <= STORE_X_IND_MDR_TO_MAR;
+                    end
+                    STORE_X_IND_MDR_TO_MAR:
+                    begin
+                        mar_in <= mdr_out[5:0];
+                        mar_ld <= 1;
+                        substate_next <= STORE_X_WRITE_MEM;
+                    end
+                    STORE_X_WRITE_MEM:
+                    begin
+                        mdr_in <= acc_out;
+                        mdr_ld <= 1;
+                        we_next = 1;
+                        state_next <= STATE_FETCH;
+                        substate_next <= 0;
                     end
                 endcase
             end
