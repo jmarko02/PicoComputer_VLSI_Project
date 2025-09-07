@@ -15,7 +15,7 @@ module register #(
     output [HIGH:0] out
 );
     localparam HIGH = DATA_WIDTH - 1;
-    reg [3:0] out_next, out_reg;
+    reg [HIGH:0] out_next, out_reg;
     assign out = out_reg;
 
     always @(posedge clk, negedge rst_n) begin

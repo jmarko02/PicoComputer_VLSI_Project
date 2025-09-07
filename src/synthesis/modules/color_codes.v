@@ -25,7 +25,7 @@ module color_codes (
             4'd7: code[11:0] = 12'h00F;
             4'd8: code[11:0] = 12'hF0F;
             4'd9: code[11:0] = 12'hFFF;
-            default: ;
+            default: code[11:0] = 12'h000;
         endcase
         
         case (tens)
@@ -39,7 +39,7 @@ module color_codes (
             4'd7: code[23:12] = 12'h00F;
             4'd8: code[23:12] = 12'hF0F;
             4'd9: code[23:12] = 12'hFFF;
-            default: ;
+            default: code[23:12] = 12'h000;
         endcase
     end
     

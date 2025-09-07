@@ -211,7 +211,7 @@ module DE0_TOP
 	//=======================================================
 	
 	top #(
-		.DIVISOR(50_000_000),
+		.DIVISOR(5_000_000),
 		.FILE_NAME("mem_init.mif"),
 		.ADDR_WIDTH(6),
 		.DATA_WIDTH(16)

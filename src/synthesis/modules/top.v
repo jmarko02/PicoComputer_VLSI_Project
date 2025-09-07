@@ -120,14 +120,14 @@ module top #(
     );
     
     vga vga1 (
-        .clk(divided_clk),
+        .clk(clk),
         .rst_n(rst_n),
         .code(color_code),
         .hsync(mnt[13]),
         .vsync(mnt[12]),
         .red(mnt[11:8]),
         .green(mnt[7:4]),
-        .blue(mnt[3:0]),
+        .blue(mnt[3:0])
     );
 
 endmodule

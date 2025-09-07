@@ -31,11 +31,12 @@ module cpu #(
     assign sp = sp_out;
 
 
-    wire pc_ld, pc_inc;
-    wire [ADDR_WIDTH - 1:0] pc_in, pc_out;
+    reg pc_ld, pc_inc;
+    reg [ADDR_WIDTH - 1:0] pc_in;
+    wire [ADDR_WIDTH - 1:0] pc_out;
     register #(
         .DATA_WIDTH(ADDR_WIDTH)
-    ) pc (
+    ) pc_reg (
         .clk(clk),
         .rst_n(rst_n),
         .ld(pc_ld),
@@ -44,11 +45,12 @@ module cpu #(
         .out(pc_out)
     );
 
-    wire sp_ld, sp_dec, sp_inc;
-    wire [ADDR_WIDTH - 1:0] sp_in, sp_out;
+    reg sp_ld, sp_dec, sp_inc;
+    reg [ADDR_WIDTH - 1:0] sp_in;
+    wire [ADDR_WIDTH - 1:0] sp_out;
     register #(
         .DATA_WIDTH(ADDR_WIDTH)
-    ) sp (
+    ) sp_reg (
         .clk(clk),
         .rst_n(rst_n),
         .ld(sp_ld),
@@ -58,8 +60,9 @@ module cpu #(
         .out(sp_out)
     );
 
-    wire ir0_ld;
-    wire [HIGH:0] ir0_in, ir0_out;
+    reg ir0_ld;
+    reg [HIGH:0] ir0_in;
+    wire [HIGH:0] ir0_out;
     register #(
         .DATA_WIDTH(DATA_WIDTH)
     ) ir0 (
@@ -70,8 +73,9 @@ module cpu #(
         .out(ir0_out)
     );  
 
-    wire ir1_ld;
-    wire [HIGH:0] ir1_in, ir1_out;
+    reg ir1_ld;
+    reg [HIGH:0] ir1_in;
+    wire [HIGH:0] ir1_out;
     register #(
         .DATA_WIDTH(DATA_WIDTH)
     ) ir1 (
@@ -82,8 +86,9 @@ module cpu #(
         .out(ir1_out)
     );
 
-    wire acc_ld;
-    wire [HIGH:0] acc_in, acc_out;
+    reg acc_ld;
+    reg [HIGH:0] acc_in;
+    wire [HIGH:0] acc_out;
     register #(
         .DATA_WIDTH(DATA_WIDTH)
     ) acc (
@@ -94,8 +99,9 @@ module cpu #(
         .out(acc_out)
     );
 
-    wire mdr_ld;
-    wire [HIGH:0] mdr_in, mdr_out;
+    reg mdr_ld;
+    reg [HIGH:0] mdr_in;
+    wire [HIGH:0] mdr_out;
     register #(
         .DATA_WIDTH(DATA_WIDTH)
     ) mdr (
@@ -106,8 +112,9 @@ module cpu #(
         .out(mdr_out)
     );
 
-    wire mar_ld;
-    wire [ADDR_WIDTH - 1:0] mar_in, mar_out;
+    reg mar_ld;
+    reg [ADDR_WIDTH - 1:0] mar_in;
+    wire [ADDR_WIDTH - 1:0] mar_out;
     register #(
         .DATA_WIDTH(ADDR_WIDTH)
     ) mar (
@@ -118,8 +125,12 @@ module cpu #(
         .out(mar_out)
     );
 
-    wire [2:0] alu_oc;
-    wire [HIGH:0] alu_a, alu_b, alu_out;
+    reg [2:0] alu_oc;
+    wire [HIGH:0] alu_a, alu_b;
+    wire [HIGH:0] alu_out;
+
+    assign alu_a = acc_out;
+    assign alu_b = mdr_out;
     alu #(
         .DATA_WIDTH(DATA_WIDTH)
     ) alu1 (
@@ -173,7 +184,6 @@ module cpu #(
     localparam DECODE_ARITHM_Z_IND_MDR_TO_MAR   = 10;
     localparam DECODE_ARITHM_Z_WAIT_MEM         = 11;
     localparam DECODE_ARITHM_Z_READ_MEM         = 12;
-    localparam DECODE_ARITHM_Z_MDR_TO_ACC       = 13;
 
     localparam DECODE_IN_SET_STATUS             = 0;
     localparam DECODE_IN_LOAD_ACC               = 1;
@@ -214,7 +224,8 @@ module cpu #(
     localparam STORE_X_IND_WAIT_MEM             = 1;
     localparam STORE_X_IND_READ_MEM             = 2;
     localparam STORE_X_IND_MDR_TO_MAR           = 3;
-    localparam STORE_X_WRITE_MEM                = 4;
+    localparam STORE_X_ACC_TO_MDR               = 4;
+    localparam STORE_X_WRITE_MEM                = 5;
 
     localparam END_DO                           = 0;
 
@@ -237,12 +248,20 @@ module cpu #(
         end
     end
 
+    wire [3:0] opcode = ir0_out[15:12];
+    wire Xind = ir0_out[11];
+    wire [2:0] Xaddr = ir0_out[10:8];
+    wire Yind = ir0_out[7];
+    wire [2:0] Yaddr = ir0_out[6:4];
+    wire Zind = ir0_out[3];
+    wire [2:0] Zaddr = ir0_out[2:0];
+
     
 
     always @(*) begin
 
-        state_next <= state_reg
-        substate_next <= substate_reg
+        state_next <= state_reg;
+        substate_next <= substate_reg;
 
         out_next <= out_reg;
         status_next <= 0;
@@ -271,6 +290,14 @@ module cpu #(
 
         mdr_in <= 0;
         mdr_ld <= 0;
+
+        case (opcode)
+            ADD: alu_oc <= 3'b000;
+            SUB: alu_oc <= 3'b001;
+            MUL: alu_oc <= 3'b010;
+            DIV: alu_oc <= 3'b011;
+            default: alu_oc <= 3'b000;
+        endcase
 
 
         case (state_reg)
@@ -317,20 +344,14 @@ module cpu #(
             end
             STATE_DECODE:
             begin
-                wire [2:0] Xaddr = ir0_out[6:4];
-                wire Xind = ir_out[7];
-                wire [2:0] Yaddr = ir0_out[2:0];
-                wire Yind = ir_out[3];
-                wire [2:0] Zaddr = ir0_out[10:8];
-                wire Zind = ir_out[11];
-                
+               
                 case (opcode)
                     MOV:
                     begin
                         case (substate_reg)
                             DECODE_MOV_LD_MAR:
                             begin
-                                mar_in <= {3'b000, Yaddr}
+                                mar_in <= {3'b000, Yaddr};
                                 mar_ld <= 1;
                                 if (Yind == 1'b1)
                                     substate_next <= DECODE_MOV_IND_WAIT_MEM;
@@ -374,306 +395,88 @@ module cpu #(
                             end
                         endcase
                     end
-                    ADD:
+                    ADD,SUB,MUL,DIV:
                     begin
                         case (substate_reg)
                             DECODE_ARITHM_Y_TO_MAR:
                             begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_IND_WAIT_MEM;
+                                mar_in <= Yaddr;
+                                mar_ld <= 1;
+                                if (Yind == 1'b1)
+                                    substate_next <= DECODE_ARITHM_Y_IND_WAIT_MEM;
+                                else
+                                    substate_next <= DECODE_ARITHM_Y_WAIT_MEM; 
                             end
                             DECODE_ARITHM_Y_IND_WAIT_MEM:
                             begin
-                               
+                                //addr <= mar_out
                                 substate_next <= DECODE_ARITHM_Y_IND_READ_MEM;
                             end
                             DECODE_ARITHM_Y_IND_READ_MEM:
                             begin
-                               
+                                mdr_in <= mem;
+                                mdr_ld <= 1;
                                 substate_next <= DECODE_ARITHM_Y_IND_MDR_TO_MAR;
                             end
                             DECODE_ARITHM_Y_IND_MDR_TO_MAR:
                             begin
-                               
+                                mar_in <= mdr_out[5:0];
+                                mar_ld <= 1;
                                 substate_next <= DECODE_ARITHM_Y_WAIT_MEM;
                             end
                             DECODE_ARITHM_Y_WAIT_MEM:
                             begin
-                               
+                                //addr <= mar_out
                                 substate_next <= DECODE_ARITHM_Y_READ_MEM;
                             end
                             DECODE_ARITHM_Y_READ_MEM:
                             begin
-                               
+                                mdr_in <= mem;
+                                mdr_ld <= 1;
                                 substate_next <= DECODE_ARITHM_Y_MDR_TO_ACC;
                             end
                             DECODE_ARITHM_Y_MDR_TO_ACC:
                             begin
-                               
+                                acc_in <= mdr_out[5:0];
+                                acc_ld <= 1;
                                 substate_next <= DECODE_ARITHM_Z_TO_MAR;
                             end
                             DECODE_ARITHM_Z_TO_MAR:
                             begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_IND_WAIT_MEM;
+                                mar_in <= Zaddr;
+                                mar_ld <= 1;
+                                if (Zind == 1'b1)
+                                    substate_next <= DECODE_ARITHM_Z_IND_WAIT_MEM;
+                                else
+                                    substate_next <= DECODE_ARITHM_Z_WAIT_MEM;
                             end
                             DECODE_ARITHM_Z_IND_WAIT_MEM:
                             begin
-                               
+                                //addr <= mar_out
                                 substate_next <= DECODE_ARITHM_Z_IND_READ_MEM;
                             end
                             DECODE_ARITHM_Z_IND_READ_MEM:
                             begin
-                               
+                                mdr_in <= mem;
+                                mdr_ld <= 1;
                                 substate_next <= DECODE_ARITHM_Z_IND_MDR_TO_MAR;
                             end
                             DECODE_ARITHM_Z_IND_MDR_TO_MAR:
                             begin
-                               
+                                mar_in <= mdr_out[5:0];
+                                mar_ld <= 1;
                                 substate_next <= DECODE_ARITHM_Z_WAIT_MEM;
                             end
                             DECODE_ARITHM_Z_WAIT_MEM:
                             begin
-                               
+                                //addr <= mar_out
                                 substate_next <= DECODE_ARITHM_Z_READ_MEM;
                             end
                             DECODE_ARITHM_Z_READ_MEM:
                             begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_MDR_TO_ACC;
-                            end
-                            DECODE_ARITHM_Z_MDR_TO_ACC:
-                            begin
-                               
-                                state_next <= STATE_STORE; 
-                                substate_next <= EXECUTE_DO;
-                            end
-                        endcase
-                    end
-                    SUB:
-                    begin
-                        case (substate_reg)
-                            DECODE_ARITHM_Y_TO_MAR:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_IND_WAIT_MEM;
-                            end
-                            DECODE_ARITHM_Y_IND_WAIT_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_IND_READ_MEM;
-                            end
-                            DECODE_ARITHM_Y_IND_READ_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_IND_MDR_TO_MAR;
-                            end
-                            DECODE_ARITHM_Y_IND_MDR_TO_MAR:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_WAIT_MEM;
-                            end
-                            DECODE_ARITHM_Y_WAIT_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_READ_MEM;
-                            end
-                            DECODE_ARITHM_Y_READ_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_MDR_TO_ACC;
-                            end
-                            DECODE_ARITHM_Y_MDR_TO_ACC:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_TO_MAR;
-                            end
-                            DECODE_ARITHM_Z_TO_MAR:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_IND_WAIT_MEM;
-                            end
-                            DECODE_ARITHM_Z_IND_WAIT_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_IND_READ_MEM;
-                            end
-                            DECODE_ARITHM_Z_IND_READ_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_IND_MDR_TO_MAR;
-                            end
-                            DECODE_ARITHM_Z_IND_MDR_TO_MAR:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_WAIT_MEM;
-                            end
-                            DECODE_ARITHM_Z_WAIT_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_READ_MEM;
-                            end
-                            DECODE_ARITHM_Z_READ_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_MDR_TO_ACC;
-                            end
-                            DECODE_ARITHM_Z_MDR_TO_ACC:
-                            begin
-                               
-                                state_next <= STATE_STORE; 
-                                substate_next <= EXECUTE_DO;
-                            end
-                        endcase
-                    end
-                    MUL:
-                    begin
-                        case (substate_reg)
-                            DECODE_ARITHM_Y_TO_MAR:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_IND_WAIT_MEM;
-                            end
-                            DECODE_ARITHM_Y_IND_WAIT_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_IND_READ_MEM;
-                            end
-                            DECODE_ARITHM_Y_IND_READ_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_IND_MDR_TO_MAR;
-                            end
-                            DECODE_ARITHM_Y_IND_MDR_TO_MAR:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_WAIT_MEM;
-                            end
-                            DECODE_ARITHM_Y_WAIT_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_READ_MEM;
-                            end
-                            DECODE_ARITHM_Y_READ_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_MDR_TO_ACC;
-                            end
-                            DECODE_ARITHM_Y_MDR_TO_ACC:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_TO_MAR;
-                            end
-                            DECODE_ARITHM_Z_TO_MAR:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_IND_WAIT_MEM;
-                            end
-                            DECODE_ARITHM_Z_IND_WAIT_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_IND_READ_MEM;
-                            end
-                            DECODE_ARITHM_Z_IND_READ_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_IND_MDR_TO_MAR;
-                            end
-                            DECODE_ARITHM_Z_IND_MDR_TO_MAR:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_WAIT_MEM;
-                            end
-                            DECODE_ARITHM_Z_WAIT_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_READ_MEM;
-                            end
-                            DECODE_ARITHM_Z_READ_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_MDR_TO_ACC;
-                            end
-                            DECODE_ARITHM_Z_MDR_TO_ACC:
-                            begin
-                               
-                                state_next <= STATE_STORE; 
-                                substate_next <= EXECUTE_DO;
-                            end
-                        endcase
-                    end
-                    DIV:
-                    begin
-                        case (substate_reg)
-                            DECODE_ARITHM_Y_TO_MAR:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_IND_WAIT_MEM;
-                            end
-                            DECODE_ARITHM_Y_IND_WAIT_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_IND_READ_MEM;
-                            end
-                            DECODE_ARITHM_Y_IND_READ_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_IND_MDR_TO_MAR;
-                            end
-                            DECODE_ARITHM_Y_IND_MDR_TO_MAR:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_WAIT_MEM;
-                            end
-                            DECODE_ARITHM_Y_WAIT_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_READ_MEM;
-                            end
-                            DECODE_ARITHM_Y_READ_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Y_MDR_TO_ACC;
-                            end
-                            DECODE_ARITHM_Y_MDR_TO_ACC:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_TO_MAR;
-                            end
-                            DECODE_ARITHM_Z_TO_MAR:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_IND_WAIT_MEM;
-                            end
-                            DECODE_ARITHM_Z_IND_WAIT_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_IND_READ_MEM;
-                            end
-                            DECODE_ARITHM_Z_IND_READ_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_IND_MDR_TO_MAR;
-                            end
-                            DECODE_ARITHM_Z_IND_MDR_TO_MAR:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_WAIT_MEM;
-                            end
-                            DECODE_ARITHM_Z_WAIT_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_READ_MEM;
-                            end
-                            DECODE_ARITHM_Z_READ_MEM:
-                            begin
-                               
-                                substate_next <= DECODE_ARITHM_Z_MDR_TO_ACC;
-                            end
-                            DECODE_ARITHM_Z_MDR_TO_ACC:
-                            begin
-                               
-                                state_next <= STATE_STORE; 
+                                mdr_in <= mem;
+                                mdr_ld <= 1;
+                                state_next <= STATE_EXECUTE;
                                 substate_next <= EXECUTE_DO;
                             end
                         endcase
@@ -683,12 +486,14 @@ module cpu #(
                         case (substate_reg)
                             DECODE_IN_SET_STATUS:
                             begin
-                                //ne mora ovo biti substate_next, pazi na skokove
-                                substate_next <= DECODE_IN_LOAD_ACC;
+                                status_next <= 1;
+                                if (control == 1'b1)
+                                    substate_next <= DECODE_IN_LOAD_ACC;
                             end
                             DECODE_IN_LOAD_ACC:
                             begin
-                                
+                                acc_in <= in;
+                                acc_ld <= 1;
                                 state_next <= STATE_STORE;
                                 substate_next <= STORE_X_TO_MAR;
                             end
@@ -699,39 +504,46 @@ module cpu #(
                         case (substate_reg)
                             DECODE_OUT_X_TO_MAR:
                             begin
-                                
-                                substate_next <= DECODE_OUT_X_IND_WAIT_MEM;
-                            end
+                                mar_in <= Xaddr;
+                                mar_ld <= 1;
+                                if (Xind == 1'b1)
+                                    substate_next <= DECODE_OUT_X_IND_WAIT_MEM;
+                                else
+                                    substate_next <= DECODE_OUT_X_WAIT_MEM;
+                            end 
                             DECODE_OUT_X_IND_WAIT_MEM:
                             begin
-                                
+                                // addr <= mar_out
                                 substate_next <= DECODE_OUT_X_IND_READ_MEM;
                             end
                             DECODE_OUT_X_IND_READ_MEM:
                             begin
-                                
+                                mdr_in <= mem;
+                                mdr_ld <= 1;
                                 substate_next <= DECODE_OUT_X_IND_MDR_TO_MAR;
                             end
                             DECODE_OUT_X_IND_MDR_TO_MAR:
                             begin
-                                
+                                mar_in <= mdr_out[5:0];
+                                mar_ld <= 1;
                                 substate_next <= DECODE_OUT_X_WAIT_MEM;
                             end
                             DECODE_OUT_X_WAIT_MEM:
                             begin
-                                
+                                // addr <= mar_out
                                 substate_next <= DECODE_OUT_X_READ_MEM;
                             end
                             DECODE_OUT_X_READ_MEM:
                             begin
-                                
+                                mdr_in <= mem;
+                                mdr_ld <= 1;
                                 substate_next <= DECODE_OUT_X_MDR_TO_OUT;
                             end
                             DECODE_OUT_X_MDR_TO_OUT:
                             begin
-                                
+                                out_next <= mdr_out;
                                 state_next <= STATE_FETCH;
-                                substate_next <= DECODE_IN_LOAD_ACC;
+                                substate_next <= FETCH_LOAD_MAR;
                             end
                         endcase
                     end
@@ -740,107 +552,136 @@ module cpu #(
                         case (substate_reg)
                             DECODE_STOP_X_TO_MAR:
                             begin
-                                
-                                substate_next <= DECODE_STOP_X_IND_WAIT_MEM;
+                                mar_in <= Xaddr;
+                                mar_ld <= 1;
+                                if (Xind == 1'b1) 
+                                    substate_next <= DECODE_STOP_X_IND_WAIT_MEM;
+                                else if (Xaddr != 3'b000)
+                                    substate_next <= DECODE_STOP_X_WAIT_MEM;
+                                else 
+                                    substate_next <= DECODE_STOP_Y_TO_MAR;
                             end
                             DECODE_STOP_X_IND_WAIT_MEM:
                             begin
-                                
+                                //addr <= mar_out
                                 substate_next <= DECODE_STOP_X_IND_READ_MEM;
                             end
                             DECODE_STOP_X_IND_READ_MEM:
                             begin
-                                
+                                mdr_in <= mem;
+                                mdr_ld <= 1;
                                 substate_next <= DECODE_STOP_X_IND_MDR_TO_MAR;
                             end
                             DECODE_STOP_X_IND_MDR_TO_MAR:
                             begin
-                                
+                                mar_in <= mdr_out[5:0];
+                                mar_ld <= 1;
                                 substate_next <= DECODE_STOP_X_WAIT_MEM;
                             end
                             DECODE_STOP_X_WAIT_MEM:
                             begin
-                                
+                                //addr <= mar_out
                                 substate_next <= DECODE_STOP_X_READ_MEM;
                             end
                             DECODE_STOP_X_READ_MEM:
                             begin
-                                
+                                mdr_in <= mem;
+                                mdr_ld <= 1;
                                 substate_next <= DECODE_STOP_X_MDR_TO_OUT;
                             end
                             DECODE_STOP_X_MDR_TO_OUT:
                             begin
-                                
+                                out_next <= mdr_out[5:0];
                                 substate_next <= DECODE_STOP_Y_TO_MAR;
                             end
                             DECODE_STOP_Y_TO_MAR:
                             begin
-                                
-                                substate_next <= DECODE_STOP_Y_IND_WAIT_MEM;
+                                mar_in <= Yaddr;
+                                mar_ld <= 1;
+                                if (Yind == 1'b1) 
+                                    substate_next <= DECODE_STOP_Y_IND_WAIT_MEM;
+                                else if (Yaddr != 3'b000)
+                                    substate_next <= DECODE_STOP_Y_WAIT_MEM;
+                                else 
+                                    substate_next <= DECODE_STOP_Z_TO_MAR;
                             end
                             DECODE_STOP_Y_IND_WAIT_MEM:
                             begin
-                                
+                                //addr <= mar_out
                                 substate_next <= DECODE_STOP_Y_IND_READ_MEM;
                             end
                             DECODE_STOP_Y_IND_READ_MEM:
                             begin
-                                
+                                mdr_in <= mem;
+                                mdr_ld <= 1;
                                 substate_next <= DECODE_STOP_Y_IND_MDR_TO_MAR;
                             end
                             DECODE_STOP_Y_IND_MDR_TO_MAR:
                             begin
-                                
+                                mar_in <= mdr_out[5:0];
+                                mar_ld <= 1;
                                 substate_next <= DECODE_STOP_Y_WAIT_MEM;
                             end
                             DECODE_STOP_Y_WAIT_MEM:
                             begin
-                                
+                                //addr <= mar_out
                                 substate_next <= DECODE_STOP_Y_READ_MEM;
                             end
                             DECODE_STOP_Y_READ_MEM:
                             begin
-                                
+                                mdr_in <= mem;
+                                mdr_ld <= 1;
                                 substate_next <= DECODE_STOP_Y_MDR_TO_OUT;
                             end
                             DECODE_STOP_Y_MDR_TO_OUT:
                             begin
-                                
+                                out_next <= mdr_out[5:0];
                                 substate_next <= DECODE_STOP_Z_TO_MAR;
                             end
                             DECODE_STOP_Z_TO_MAR:
                             begin
-                                
-                                substate_next <= DECODE_STOP_Z_IND_WAIT_MEM;
+                                mar_in <= Zaddr;
+                                mar_ld <= 1;
+                                if (Zind == 1'b1) 
+                                    substate_next <= DECODE_STOP_Z_IND_WAIT_MEM;
+                                else if (Zaddr != 3'b000)
+                                    substate_next <= DECODE_STOP_Z_WAIT_MEM;
+                                else begin
+                                    state_next <= STATE_END;
+                                    substate_next <= END_DO;
+                                end
                             end
                             DECODE_STOP_Z_IND_WAIT_MEM:
                             begin
-                                
+                                //addr <= mar_out
                                 substate_next <= DECODE_STOP_Z_IND_READ_MEM;
                             end
                             DECODE_STOP_Z_IND_READ_MEM:
                             begin
-                                
+                                mdr_in <= mem;
+                                mdr_ld <= 1;
                                 substate_next <= DECODE_STOP_Z_IND_MDR_TO_MAR;
                             end
                             DECODE_STOP_Z_IND_MDR_TO_MAR:
                             begin
-                                
+                                mar_in <= mdr_out[5:0];
+                                mar_ld <= 1;
                                 substate_next <= DECODE_STOP_Z_WAIT_MEM;
                             end
                             DECODE_STOP_Z_WAIT_MEM:
                             begin
-                                
+                                //addr <= mar_out
                                 substate_next <= DECODE_STOP_Z_READ_MEM;
                             end
                             DECODE_STOP_Z_READ_MEM:
                             begin
-                                
+                                mdr_in <= mem;
+                                mdr_ld <= 1;
                                 substate_next <= DECODE_STOP_Z_MDR_TO_OUT;
                             end
                             DECODE_STOP_Z_MDR_TO_OUT:
                             begin
-                                
+                                out_next <= mdr_out[5:0];
                                 state_next <= STATE_END;
                                 substate_next <= END_DO;
                             end
@@ -850,23 +691,10 @@ module cpu #(
             end
             STATE_EXECUTE:
             begin
-                case (substate_reg)
-                    EXECUTE_DO:
-                    begin
-                        acc_in <= alu_out;
-                        acc_ld <= 1;
-                        alu_a <= acc_out;
-                        alu_b <= mdr_out;
-                        case (opcode)
-                            ADD: alu_oc <= 3'b000;
-                            SUB: alu_oc <= 3'b001;
-                            MUL: alu_oc <= 3'b010;
-                            DIV: alu_oc <= 3'b011;
-                        endcase
-                        state_next <= STATE_STORE;
-                        substate_next <= STORE_X_TO_MAR;
-                    end
-                endcase
+                acc_in <= alu_out;
+                acc_ld <= 1;
+                state_next <= STATE_STORE;
+                substate_next <= STORE_X_TO_MAR;
             end
             STATE_STORE:
             begin
@@ -878,7 +706,7 @@ module cpu #(
                         if (Xind == 1'b1)
                             substate_next <= STORE_X_IND_WAIT_MEM;
                         else 
-                            substate_next <= STORE_X_WRITE_MEM;    
+                            substate_next <= STORE_X_ACC_TO_MDR;    
                     end
                     STORE_X_IND_WAIT_MEM:
                     begin
@@ -895,15 +723,19 @@ module cpu #(
                     begin
                         mar_in <= mdr_out[5:0];
                         mar_ld <= 1;
+                        substate_next <= STORE_X_ACC_TO_MDR;
+                    end
+                    STORE_X_ACC_TO_MDR:
+                    begin
+                        mdr_in <= acc_out;
+                        mdr_ld <= 1;
                         substate_next <= STORE_X_WRITE_MEM;
                     end
                     STORE_X_WRITE_MEM:
                     begin
-                        mdr_in <= acc_out;
-                        mdr_ld <= 1;
-                        we_next = 1;
+                        we_next <= 1;
                         state_next <= STATE_FETCH;
-                        substate_next <= 0;
+                        substate_next <= FETCH_LOAD_MAR;
                     end
                 endcase
             end
