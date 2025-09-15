@@ -74,8 +74,26 @@ module top #(
     assign led[9:6] = 0;
 
     // only for testing, replace with PS2+scancodes
-    assign control = btn[0];
-    assign cpu_in = sw[5:0];
+    // assign control = btn[0];
+    // assign cpu_in = sw[5:0];
+
+    wire [15:0] ps2_code;
+    ps2 ps2 (
+        .clk(clk),
+        .rst_n(rst_n),
+        .ps2_clk(kbd[0]),
+        .ps2_data(kbd[1]),
+        .code(ps2_code)
+    );
+
+    scan_codes sc (
+        .clk(divided_clk),
+        .rst_n(rst_n),
+        .code(ps2_code),
+        .status(status),
+        .control(control),
+        .num(cpu_in)
+    );
 
     wire [3:0] pc_ones;
     wire [3:0] pc_tens;
